@@ -11,7 +11,7 @@ Building a robust, highly available, and scalable telemedicine infrastructure. T
 # Team Members
 1. **Kerolis Khalaf Shafik**
 2. **Antonios Reda Milad**
-3. **Mohamed Mahmoud Ali**
+3. **Mohanad Mohamed Ali**
 4. **Shahd Essam Youssef**
 5. **Yassin Wael Fawzy**
 6. **Ziad Yehia Ahmed**
