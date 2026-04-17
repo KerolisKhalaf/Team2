@@ -11,7 +11,7 @@ pipeline {
     
         stage('Git Clone') {
             steps {
-                git branch: 'main', url: 'https://github.com/pparth27743/telemedicine'
+                git branch: 'main', url: 'https://github.com/KerolisKhalaf/Team2.git'
             }
         }
         stage('Install dependancies') {
