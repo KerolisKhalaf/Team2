@@ -1,11 +1,13 @@
 pipeline {
 
+    agent any
+
     environment {
         registryCredential = 'dockerhub_id'
         DOCKER_REGISTRY = 'https://registry.hub.docker.com'
+        NODEJS_HOME = tool 'node18'
+        PATH = "${NODEJS_HOME}/bin:${env.PATH}"
     }
-
-    agent any
 
     stages {
 
@@ -17,23 +19,45 @@ pipeline {
 
         stage('Install dependencies') {
             steps {
-                sh 'cd Backend/ && npm ci'
-                sh 'cd Ng-frontend/ && npm ci'
-                sh 'cd WebRTC_Signaling_Server/ && npm ci'
+                sh '''
+                set -e
+                cd Backend
+                npm ci
+
+                cd ../Ng-frontend
+                npm ci
+
+                cd ../WebRTC_Signaling_Server
+                npm ci
+                '''
             }
         }
 
         stage('Test') {
             steps {
-                sh 'cd Backend/ && cp .env_test .env && npm test'
+                sh '''
+                set -e
+                cd Backend
+                cp .env_test .env
+                export NODE_ENV=test
+                npm test
+                '''
             }
         }
 
         stage('Build') {
             steps {
-                sh 'cd Backend/ && cp .env_deploy .env'
-                sh 'cd Ng-frontend/ && npx ng build'
-                sh 'cd WebRTC_Signaling_Server/ && npm run build || true'
+                sh '''
+                set -e
+                cd Backend
+                cp .env_deploy .env
+
+                cd ../Ng-frontend
+                npx ng build --configuration production
+
+                cd ../WebRTC_Signaling_Server
+                npm run build || true
+                '''
             }
         }
 
@@ -54,9 +78,11 @@ pipeline {
 
         stage('Tag Docker Images') {
             steps {
-                sh 'docker tag telemedicine_webrtc_server antoniosreda/telemedicine_webrtc_server:${BUILD_NUMBER}'
-                sh 'docker tag telemedicine_frontend antoniosreda/telemedicine_frontend:${BUILD_NUMBER}'
-                sh 'docker tag telemedicine_backend antoniosreda/telemedicine_backend:${BUILD_NUMBER}'
+                sh '''
+                docker tag telemedicine_webrtc_server antoniosreda/telemedicine_webrtc_server:${BUILD_NUMBER}
+                docker tag telemedicine_frontend antoniosreda/telemedicine_frontend:${BUILD_NUMBER}
+                docker tag telemedicine_backend antoniosreda/telemedicine_backend:${BUILD_NUMBER}
+                '''
             }
         }
 
@@ -64,9 +90,11 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry(DOCKER_REGISTRY, registryCredential) {
-                        sh 'docker push antoniosreda/telemedicine_webrtc_server:${BUILD_NUMBER}'
-                        sh 'docker push antoniosreda/telemedicine_frontend:${BUILD_NUMBER}'
-                        sh 'docker push antoniosreda/telemedicine_backend:${BUILD_NUMBER}'
+                        sh '''
+                        docker push antoniosreda/telemedicine_webrtc_server:${BUILD_NUMBER}
+                        docker push antoniosreda/telemedicine_frontend:${BUILD_NUMBER}
+                        docker push antoniosreda/telemedicine_backend:${BUILD_NUMBER}
+                        '''
                     }
                 }
             }
@@ -75,12 +103,11 @@ pipeline {
         stage('Deploy with Ansible') {
             steps {
                 ansiblePlaybook(
-                    becomeUser: null,
-                    colorized: true,
-                    disableHostKeyChecking: true,
                     installation: 'Ansible',
                     inventory: './ansible_deployment/ansible_inventory',
-                    playbook: './ansible_deployment/ansible_deploy.yml'
+                    playbook: './ansible_deployment/ansible_deploy.yml',
+                    colorized: true,
+                    disableHostKeyChecking: true
                 )
             }
         }
