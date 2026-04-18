@@ -23,7 +23,7 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh 'cd Backend/ && cp .env_test .env && npm test'
+                sh 'cd Backend/ && cp .env_test .env && NODE_ENV=test npm test'
             }
         }
         stage('Build') {
