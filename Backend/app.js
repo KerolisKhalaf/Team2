@@ -19,6 +19,10 @@ if (process.env.NODE_ENV !== "test") {
       return;
     }
 
+    console.log("Database connected successfully");
+  });
+}
+
 
 
 
@@ -155,4 +159,4 @@ if (process.env.NODE_ENV !== "test") {
 //   console.log(`Backend up and running on PORT : ${port}`);
 // });
 
-module.exports = app;
+// module.exports = app;
