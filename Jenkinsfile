@@ -1,75 +1,115 @@
 pipeline {
-    
-    environment {
-        registryCredential = 'dockerhub_id'
-    }
 
- 
     agent any
 
+    environment {
+        registryCredential = 'dockerhub_id'
+        DOCKER_REGISTRY = 'https://registry.hub.docker.com'
+        NODEJS_HOME = tool 'node18'
+        PATH = "${NODEJS_HOME}/bin:${env.PATH}"
+    }
+
     stages {
-    
+
         stage('Git Clone') {
             steps {
-                git branch: 'main', url: 'https://github.com/KerolisKhalaf/Team2.git'
+                git branch: 'main', url: 'https://github.com/Antonios-Reda/Team2.git'
             }
         }
-        stage('Install dependancies') {
+
+        stage('Install dependencies') {
             steps {
-                sh 'cd Backend/ && npm i'
-                sh 'cd Ng-frontend/ && npm i'
-                sh 'cd WebRTC_Signaling_Server/ && npm i'
-            } 
+                sh '''
+                set -e
+                cd Backend
+                npm ci
+
+                cd ../Ng-frontend
+                npm ci
+
+                cd ../WebRTC_Signaling_Server
+                npm ci
+                '''
+            }
         }
+
         stage('Test') {
             steps {
                 sh 'cd Backend/ && cp .env_test .env && NODE_ENV=test npm test'
             }
         }
+
         stage('Build') {
             steps {
-                sh 'cd Backend/ && cp .env_deploy .env' 
-                sh 'cd Ng-frontend/ && ng build'
+                sh '''
+                set -e
+                cd Backend
+                cp .env_deploy .env
+
+                cd ../Ng-frontend
+                npx ng build --configuration production
+
+                cd ../WebRTC_Signaling_Server
+                npm run build || true
+                '''
             }
         }
+
         stage('Remove Previous Docker Images If Exists') {
             steps {
-                sh 'docker rmi telemedicine_webrtc_server  telemedicine_frontend  telemedicine_backend 2> /dev/null || true'
-                sh 'docker rmi pparth27743/telemedicine_webrtc_server  pparth27743/telemedicine_frontend  pparth27743/telemedicine_backend 2> /dev/null || true'
+                sh '''
+                docker rmi telemedicine_webrtc_server telemedicine_frontend telemedicine_backend 2>/dev/null || true
+                docker rmi antoniosreda/telemedicine_webrtc_server antoniosreda/telemedicine_frontend antoniosreda/telemedicine_backend 2>/dev/null || true
+                '''
             }
         }
-        stage('Docker containerization') {
+
+        stage('Docker Containerization') {
             steps {
-                sh 'docker-compose build'
+                sh 'docker compose build'
             }
         }
-        stage('Rename Docke Image name to push on Docker Hub') {
+
+        stage('Tag Docker Images') {
             steps {
-                sh 'docker tag telemedicine_webrtc_server pparth27743/telemedicine_webrtc_server'
-                sh 'docker tag telemedicine_frontend pparth27743/telemedicine_frontend'
-                sh 'docker tag telemedicine_backend pparth27743/telemedicine_backend'
+                sh '''
+                docker tag telemedicine_webrtc_server antoniosreda/telemedicine_webrtc_server:${BUILD_NUMBER}
+                docker tag telemedicine_frontend antoniosreda/telemedicine_frontend:${BUILD_NUMBER}
+                docker tag telemedicine_backend antoniosreda/telemedicine_backend:${BUILD_NUMBER}
+                '''
             }
         }
+
         stage('Deploy on Docker Hub') {
             steps {
                 script {
-                    docker.withRegistry( '', registryCredential ) {
-                      sh 'docker push pparth27743/telemedicine_webrtc_server'
-                      sh 'docker push pparth27743/telemedicine_frontend'
-                      sh 'docker push pparth27743/telemedicine_backend'
+                    docker.withRegistry(DOCKER_REGISTRY, registryCredential) {
+                        sh '''
+                        docker push antoniosreda/telemedicine_webrtc_server:${BUILD_NUMBER}
+                        docker push antoniosreda/telemedicine_frontend:${BUILD_NUMBER}
+                        docker push antoniosreda/telemedicine_backend:${BUILD_NUMBER}
+                        '''
                     }
                 }
             }
         }
-        stage('Deploy with ansible') {
+
+        stage('Deploy with Ansible') {
             steps {
-                ansiblePlaybook becomeUser: null, colorized: true, disableHostKeyChecking: true, installation: 'Ansible', inventory: './ansible_deployment/ansible_inventory', playbook: './ansible_deployment/ansible_deploy.yml', sudoUser: null
+                ansiblePlaybook(
+                    installation: 'Ansible',
+                    inventory: './ansible_deployment/ansible_inventory',
+                    playbook: './ansible_deployment/ansible_deploy.yml',
+                    colorized: true,
+                    disableHostKeyChecking: true
+                )
             }
         }
-        
+    }
 
+    post {
+        always {
+            cleanWs()
+        }
     }
 }
-
-
-     
