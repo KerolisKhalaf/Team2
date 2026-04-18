@@ -1,4 +1,5 @@
 pipeline {
+
     agent any
 
     tools {
@@ -31,7 +32,11 @@ pipeline {
 
         stage('Test') {
             steps {
-                sh 'cd Backend && cp .env_test .env && NODE_ENV=test npm test'
+                sh '''
+                cd Backend
+                cp .env_test .env
+                NODE_ENV=test npm test
+                '''
             }
         }
 
@@ -40,7 +45,7 @@ pipeline {
                 sh '''
                 set -e
                 cd Backend && cp .env_deploy .env
-                cd ../Ng-frontend && npx ng build --configuration production
+                cd ../Ng-frontend && npm run build
                 cd ../WebRTC_Signaling_Server && npm run build || true
                 '''
             }
@@ -57,6 +62,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub_id', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
                     sh '''
                     echo $PASS | docker login -u $USER --password-stdin
+
                     docker push keroliskhalaf1/telemedicine_webrtc_server:${BUILD_NUMBER}
                     docker push keroliskhalaf1/telemedicine_frontend:${BUILD_NUMBER}
                     docker push keroliskhalaf1/telemedicine_backend:${BUILD_NUMBER}
@@ -68,9 +74,7 @@ pipeline {
 
     post {
         always {
-            node {
-                cleanWs()
-            }
+            cleanWs()
         }
     }
 }
