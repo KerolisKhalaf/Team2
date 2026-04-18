@@ -90,7 +90,7 @@ pipeline {
                     sh '''
                     set -e
 
-                    echo $PASS | docker login -u $USER --password-stdin
+                    echo "$PASS" | tr -d '\r' | docker login -u "$USER" --password-stdin
 
                     # tagging
                     docker tag telemedicine_devops-backend:latest keroliskhalaf1/telemedicine_backend:${BUILD_NUMBER}
